@@ -1,0 +1,33 @@
+{
+  "discos": [],
+  "vms": [],
+  "balanceadores": [
+    {
+      "id": "balanceador",
+      "nombre": "balanceador",
+      "ip": "192.168.20.110",
+      "puerto_ssh": "22",
+      "puerto_web": "80",
+      "servidores": [
+        {
+          "id": "Debian",
+          "nombre": "Debian",
+          "ip": "192.168.20.109",
+          "puerto": "8000"
+        },
+        {
+          "id": "Debian2",
+          "nombre": "Debian2",
+          "ip": "192.168.20.112",
+          "puerto": "8000"
+        },
+        {
+          "id": "Debian3",
+          "nombre": "Debian3",
+          "ip": "192.168.20.111",
+          "puerto": "8000"
+        }
+      ]
+    }
+  ]
+}
