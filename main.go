@@ -184,34 +184,46 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 func ejecutarHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(10 << 20)
+
 	puerto := r.FormValue("puerto")
 	discoMulti := r.FormValue("disco_multi")
 	ipVM := r.FormValue("ip_vm")
+	vmName := r.FormValue("vm_plantilla")
 
-	fmt.Println("--------------------------------------------------")
-	fmt.Println("Iniciando despliegue en maquina base (Puerto 22)...")
-
-	client, err := creaClienteSSH(ipVM, "22")
-	if err != nil {
-		fmt.Println("Error de conexion SSH:", err)
+	if vmName == "" || ipVM == "" || puerto == "" {
+		fmt.Println("ERROR: Datos incompletos en el formulario")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	// Inyeccion de llave publica
-	// CAMBIAR: reemplaza TU_USUARIO con tu usuario de Windows
+	fmt.Println("--------------------------------------------------")
+	fmt.Println("Iniciando despliegue en VM:", vmName)
+
+	// 🔐 CONEXIÓN SSH
+	client, err := creaClienteSSH(ipVM, "22")
+	if err != nil {
+		fmt.Println("Error de conexion SSH:", err)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// 🔑 INYECTAR LLAVE SSH
 	pubKey, _ := os.ReadFile("C:\\Users\\TU_USUARIO\\.ssh\\id_ed25519.pub")
 	ejecutarComandoSSH(client, fmt.Sprintf(`mkdir -p ~/.ssh && echo "%s" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`, string(pubKey)))
-	fmt.Println("Llave SSH configurada exitosamente.")
 
 	fmt.Println("Transfiriendo archivos...")
+
+	// 📦 SUBIR EJECUTABLE
 	fileEjecutable, _, _ := r.FormFile("ejecutable")
 	bytesEjecutable, _ := io.ReadAll(fileEjecutable)
 	subirArchivoSSH(client, bytesEjecutable, "/home/"+sshUser+"/ejecutable_linux")
 
+	// 📦 SUBIR ZIP
 	fileZip, _, _ := r.FormFile("archivos_zip")
 	bytesZip, _ := io.ReadAll(fileZip)
 	subirArchivoSSH(client, bytesZip, "/home/"+sshUser+"/archivos.zip")
 
+	// ⚙️ CREAR SERVICE
 	serviceData := fmt.Sprintf(`[Unit]
 Description=Servidor Gestionado Go
 
@@ -222,49 +234,90 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target`, sshUser, puerto, sshUser)
+
 	subirArchivoSSH(client, []byte(serviceData), "/home/"+sshUser+"/appweb.service")
 
-	fmt.Println("Configurando sistema operativo y servicios...")
-	comandosLinux := fmt.Sprintf(`
-		set -e
-		echo '%s' | sudo -S apt-get update -y
-		echo '%s' | sudo -S apt-get install -y unzip
-		unzip -o archivos.zip
-		chmod +x ejecutable_linux
-		echo '%s' | sudo -S cp /home/%s/appweb.service /etc/systemd/system/
-		echo '%s' | sudo -S bash -c 'echo "%s ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/%s && chmod 440 /etc/sudoers.d/%s'
-		echo '%s' | sudo -S systemctl daemon-reload
-		echo '%s' | sudo -S systemctl enable appweb
-		echo '%s' | sudo -S sync
-	`, sshPassword, sshPassword, sshPassword, sshUser,
-		sshPassword, sshUser, sshUser, sshUser,
-		sshPassword, sshPassword, sshPassword)
-	ejecutarComandoSSH(client, comandosLinux)
+	fmt.Println("Configurando sistema...")
 
-	outVerify, _ := ejecutarComandoSSH(client, "systemctl status appweb --no-pager")
-	fmt.Println("Estado del servicio en la maquina base:\n", outVerify)
+	comandosLinux := fmt.Sprintf(`
+	set -e
+	echo '%s' | sudo -S apt-get update -y
+	echo '%s' | sudo -S apt-get install -y unzip
+	unzip -o archivos.zip
+	chmod +x ejecutable_linux
+	echo '%s' | sudo -S cp /home/%s/appweb.service /etc/systemd/system/
+	echo '%s' | sudo -S systemctl daemon-reload
+	echo '%s' | sudo -S systemctl enable appweb
+	echo '%s' | sudo -S systemctl start appweb
+	`, sshPassword, sshPassword, sshPassword, sshUser,
+		sshPassword, sshPassword, sshPassword)
+
+	outCmd, errCmd := ejecutarComandoSSH(client, comandosLinux)
+	fmt.Println(outCmd)
+
+	if errCmd != nil {
+		fmt.Println("Error configurando VM:", errCmd)
+	}
 
 	client.Close()
 
-	fmt.Println("Apagando maquina base...")
-	// CAMBIAR: ajusta el nombre de la VM y la ruta del disco .vdi
+	// 🧠 OBTENER VDI DINÁMICAMENTE
 	vboxManage := "C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"
-	vmName := "Debian-Servidor1"
-	vdiPath := "C:\\Users\\TU_USUARIO\\VirtualBox VMs\\Debian-Servidor1\\Debian-Servidor.vdi"
 
+	cmd := exec.Command(vboxManage, "showvminfo", vmName, "--machinereadable")
+	output, err := cmd.Output()
+
+	if err != nil {
+		fmt.Println("Error obteniendo info de VM:", err)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	lines := strings.Split(string(output), "\n")
+	vdiPath := ""
+
+	for _, line := range lines {
+		if strings.Contains(line, ".vdi") && strings.Contains(line, "SATA") {
+			parts := strings.Split(line, "=")
+			if len(parts) == 2 {
+				vdiPath = strings.Trim(parts[1], `"`)
+				break
+			}
+		}
+	}
+
+	if vdiPath == "" {
+		fmt.Println("No se encontró el disco VDI")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// 📴 APAGAR VM
+	fmt.Println("Apagando VM...")
 	exec.Command(vboxManage, "controlvm", vmName, "poweroff").Run()
 	time.Sleep(5 * time.Second)
 
-	fmt.Println("Modificando medio de almacenamiento a multiconexion...")
-	exec.Command(vboxManage, "storageattach", vmName, "--storagectl", "SATA", "--port", "0", "--device", "0", "--medium", "none").Run()
+	// 🔄 MULTIATTACH
+	fmt.Println("Configurando disco multiattach...")
+	exec.Command(vboxManage, "storageattach", vmName,
+		"--storagectl", "SATA",
+		"--port", "0",
+		"--device", "0",
+		"--medium", "none").Run()
+
 	exec.Command(vboxManage, "modifymedium", vdiPath, "--type", "multiattach").Run()
 
+	// 💾 GUARDAR
 	mtx.Lock()
-	discosGuardados = append(discosGuardados, Disco{Nombre: discoMulti, Ruta: vdiPath})
+	discosGuardados = append(discosGuardados, Disco{
+		Nombre: discoMulti,
+		Ruta:   vdiPath,
+	})
 	guardarEstado()
 	mtx.Unlock()
 
-	fmt.Println("Despliegue finalizado exitosamente.")
+	fmt.Println("Despliegue finalizado correctamente 🚀")
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
