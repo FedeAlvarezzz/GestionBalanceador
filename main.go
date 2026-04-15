@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"strconv"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -33,6 +34,9 @@ var vmsGuardadas []Maquina
 var balanceadoresGuardados []Balanceador
 var resultadoConsola string
 var mtx sync.Mutex
+var cpuPorVM = make(map[string]float64)
+
+var autoScalingActivo = false
 
 type ServidorBackend struct {
 	ID     string `json:"id"`
@@ -171,11 +175,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		VMs               []MaquinaVirtualUI
 		Balanceadores     []Balanceador
 		ResultadoServicio string
+		CPU               map[string]float64
 	}{
 		Discos:            append([]Disco(nil), discosGuardados...),
 		VMs:               vmsUI,
 		Balanceadores:     append([]Balanceador(nil), balanceadoresGuardados...),
 		ResultadoServicio: resultadoConsola,
+		CPU:               cpuPorVM,
 	}
 	resultadoConsola = ""
 	mtx.Unlock()
@@ -627,8 +633,73 @@ backend main_back
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func obtenerCPU(ip string, puerto string) (float64, error) {
+	client, err := creaClienteSSH(ip, puerto)
+	if err != nil {
+		return 0, err
+	}
+	defer client.Close()
+
+	// 🔥 FORZAR FORMATO EN INGLÉS + UNA SOLA LÍNEA
+	cmd := `LC_ALL=C top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}' | head -n 1`
+
+	out, err := ejecutarComandoSSH(client, cmd)
+
+	fmt.Println("SALIDA CRUDA:", out)
+	fmt.Println("ERROR CMD:", err)
+
+	if err != nil {
+		return 0, err
+	}
+
+	out = strings.TrimSpace(out)
+
+	// 🔥 REEMPLAZAR COMA POR PUNTO (por si acaso)
+	out = strings.ReplaceAll(out, ",", ".")
+
+	valor, err := strconv.ParseFloat(out, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return valor, nil
+}
+
+func cpuHandler(w http.ResponseWriter, r *http.Request) {
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cpuPorVM)
+}
+
 func main() {
 	cargarEstado()
+
+go func() {
+	log.Println("MONITOR CPU INICIADO")
+
+	for {
+		mtx.Lock()
+		vms := append([]Maquina(nil), vmsGuardadas...)
+		mtx.Unlock()
+
+		for _, vm := range vms {
+			cpu, err := obtenerCPU(vm.IP, "22")
+			if err != nil {
+				log.Printf("Error CPU [%s - %s]: %v\n", vm.Nombre, vm.IP, err)
+			} else {
+				mtx.Lock()
+				cpuPorVM[vm.Nombre] = cpu
+				mtx.Unlock()
+
+				log.Printf("CPU [%s - %s]: %.2f%%\n", vm.Nombre, vm.IP, cpu)
+			}
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+}()
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/ejecutar", ejecutarHandler)
@@ -643,7 +714,9 @@ func main() {
 	http.HandleFunc("/haproxy/servidor/agregar", anadirServerBackendHandler)
 	http.HandleFunc("/haproxy/servidor/eliminar", eliminarServerBackendHandler)
 	http.HandleFunc("/haproxy/sincronizar", sincronizarHAProxyHandler)
+	http.HandleFunc("/cpu", cpuHandler)
 
 	fmt.Println("Servidor en ejecucion en http://localhost:8081")
+
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }

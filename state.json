@@ -10,6 +10,11 @@
       "Nombre": "Debian2",
       "IP": "192.168.204.130",
       "Puerto": "8000"
+    },
+    {
+      "Nombre": "Debian3",
+      "IP": "192.168.203.160",
+      "Puerto": "8000"
     }
   ],
   "balanceadores": [
