@@ -429,19 +429,20 @@
         }
 
         /* ── TERMINAL ── */
-        .terminal {
-            background: #000;
-            border: 1px solid #1e2832;
-            border-radius: 8px;
-            padding: 16px 18px;
-            font-family: var(--mono);
-            font-size: 0.78rem;
-            color: #00e5a0;
-            white-space: pre-wrap;
-            word-break: break-all;
-            max-height: 320px;
-            overflow-y: auto;
-        }
+.terminal {
+    background: #000;
+    border: 1px solid #1e2832;
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: #00e5a0;
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    height: 300px;      /* mejor que max-height */
+    overflow-y: auto;   /* scroll vertical */
+}
 
         .terminal::-webkit-scrollbar {
             width: 4px;
@@ -981,6 +982,10 @@
 
                                 </form>
                             </div>
+                            <div class="card-panel">
+                                <p class="section-label">Consola del sistema</p>
+                                <div id="console" class="terminal"></div>
+                            </div>
 
                             <div class="card-panel mt-3">
                                 <p style="font-family:var(--mono); font-size:0.7rem;">
@@ -1044,6 +1049,26 @@
 
                     // Primera carga inmediata
                     actualizarCPU();
+                </script>
+
+                <script>
+                    function actualizarLogs() {
+                        fetch('/logs')
+                            .then(res => {
+                                if (!res.ok) throw new Error("HTTP error " + res.status);
+                                return res.json();
+                            })
+                            .then(data => {
+                                const consoleDiv = document.getElementById("console");
+
+                                consoleDiv.innerText = data.join("\n");
+                                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                            })
+                            .catch(err => console.error("LOG ERROR:", err));
+                    }
+
+                    setInterval(actualizarLogs, 2000);
+                    actualizarLogs();
                 </script>
 </body>
 

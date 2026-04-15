@@ -94,6 +94,14 @@ const cooldownEscalado = 2 * time.Minute // tiempo mínimo entre escalados
 
 const archivoEstado = "state.json"
 
+var (
+	logMutex sync.Mutex
+	logs     []string
+)
+
+var logBuffer []string
+var logMtx sync.Mutex
+
 // ─── CREDENCIALES ────────────────────────────────────────────────────────────
 
 const sshUser = "diego"
@@ -295,7 +303,9 @@ hayVMCaliente := avgCPU >= umbralAlto && tiempoTotal >= duracionUmbral
 
 	// ─── ESCALAR ARRIBA ───
 	if hayVMCaliente && !vmTempExiste {
-		log.Printf("[%s] CPU alta sostenida → creando VM temporal\n", bal.Nombre)
+		msg := fmt.Sprintf("[%s] CPU alta sostenida → creando VM temporal", bal.Nombre)
+log.Println(msg)
+addLog(msg)
 		ultimoEscaladoPorBal[bal.ID] = time.Now()
 		mtx.Unlock()
 		balCopy := bal
@@ -321,13 +331,18 @@ vmOrigen := servidoresBase[0].IP
 		}
 
 		if todasFrias {
-			log.Printf("[%s] CPU baja → eliminando VM temporal\n", bal.Nombre)
-			ultimoEscaladoPorBal[bal.ID] = time.Now()
-			vmTemp := vmTemporalPorBal[bal.ID]
-			mtx.Unlock()
-			go eliminarVMTemporalDeBal(bal, vmTemp)
-			return
-		}
+	msg := fmt.Sprintf("[%s] CPU baja → eliminando VM temporal", bal.Nombre)
+
+	log.Println(msg)
+	addLog(msg)
+
+	ultimoEscaladoPorBal[bal.ID] = time.Now()
+	vmTemp := vmTemporalPorBal[bal.ID]
+
+	mtx.Unlock()
+	go eliminarVMTemporalDeBal(bal, vmTemp)
+	return
+}
 	}
 
 	mtx.Unlock()
@@ -414,6 +429,9 @@ func crearVMTemporalParaBal(balID string, vmOrigen string) {
 
 func eliminarVMTemporalDeBal(bal Balanceador, vmNombre string) {
 	log.Printf("Eliminando VM temporal: %s\n", vmNombre)
+	msg := fmt.Sprintf("Eliminando VM temporal: %s", vmNombre)
+log.Println(msg)
+addLog(msg)
 
 	vboxManage := "C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"
 	exec.Command(vboxManage, "controlvm", vmNombre, "poweroff").Run()
@@ -456,6 +474,9 @@ func eliminarVMTemporalDeBal(bal Balanceador, vmNombre string) {
 	sincronizarHAProxyParaBal(bal)
 
 	log.Printf("VM temporal %s eliminada y HAProxy actualizado\n", vmNombre)
+	msg = fmt.Sprintf("VM temporal %s eliminada y HAProxy actualizado", vmNombre)
+log.Println(msg)
+addLog(msg)
 }
 
 // sincronizarHAProxyParaBal aplica la config de HAProxy programáticamente
@@ -967,6 +988,27 @@ if v := r.FormValue("tiempo_umbral"); v != "" {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func addLog(msg string) {
+	logMtx.Lock()
+	defer logMtx.Unlock()
+
+	logBuffer = append(logBuffer, msg)
+
+	// opcional: limitar tamaño
+	if len(logBuffer) > 200 {
+		logBuffer = logBuffer[1:]
+	}
+}
+
+func logsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	logMtx.Lock()
+	defer logMtx.Unlock()
+
+	json.NewEncoder(w).Encode(logBuffer)
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 func main() {
@@ -974,6 +1016,7 @@ func main() {
 
 	// Monitor de CPU y autoscaling
 	go func() {
+		addLog("MONITOR CPU INICIADO")
 		log.Println("MONITOR CPU INICIADO")
 
 		for {
@@ -1011,8 +1054,11 @@ func main() {
 				caliente := tiempoCalienteVM[vm.Nombre]
 				mtx.Unlock()
 
-				log.Printf("CPU [%s - %s]: %.2f%% | tiempo caliente: %s\n",
-					vm.Nombre, vm.IP, cpu, caliente.Round(time.Second))
+msg := fmt.Sprintf("CPU [%s - %s]: %.2f%% | tiempo caliente: %s",
+    vm.Nombre, vm.IP, cpu, caliente.Round(time.Second))
+
+log.Println(msg)
+addLog(msg)
 			}
 
 			// Evaluar autoscaling por cada balanceador
@@ -1041,7 +1087,10 @@ func main() {
 	http.HandleFunc("/cpu", cpuHandler)
 	http.HandleFunc("/autoscaling/toggle", toggleAutoScalingHandler)
 	http.HandleFunc("/autoscaling/config", configAutoScalingHandler)
+	http.HandleFunc("/logs", logsHandler)
 
-	fmt.Println("Servidor en ejecucion en http://localhost:8081")
+	msg := "Servidor en ejecucion en http://localhost:8081"
+fmt.Println(msg)
+addLog(msg)
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
