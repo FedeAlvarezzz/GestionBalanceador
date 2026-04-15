@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Balanceador</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080c10;
+            --surface: #0e1318;
+            --border: #1e2832;
+            --accent: #00e5a0;
+            --accent2: #0094ff;
+            --danger: #ff3d5a;
+            --text: #c8d6e5;
+            --text-dim: #4a6070;
+            --mono: 'Space Mono', monospace;
+            --sans: 'Syne', sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--sans);
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+            background-image:
+                radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0, 229, 160, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 30% at 10% 80%, rgba(0, 148, 255, 0.04) 0%, transparent 60%);
+        }
+
+        /* ── TOP BAR ── */
+        .topbar {
+            border-bottom: 1px solid var(--border);
+            padding: 18px 40px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            position: sticky;
+            top: 0;
+            background: rgba(8, 12, 16, 0.92);
+            backdrop-filter: blur(12px);
+            z-index: 100;
+        }
+
+        .topbar-logo {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            border: 1px solid var(--accent);
+            padding: 4px 10px;
+            border-radius: 3px;
+        }
+
+        .topbar-title {
+            font-family: var(--sans);
+            font-weight: 800;
+            font-size: 1rem;
+            color: #fff;
+            letter-spacing: 0.05em;
+        }
+
+        .topbar-sub {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            margin-left: auto;
+            letter-spacing: 0.1em;
+        }
+
+        /* ── LAYOUT ── */
+        .main-wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px 0;
+        }
+
+        /* ── SECTION LABELS ── */
+        .section-label {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── CARDS ── */
+        .card-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 28px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0.4;
+        }
+
+        .card-panel.accent-blue::before {
+            background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+        }
+
+        /* ── FORMS ── */
+        .form-label {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .form-control,
+        .form-select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            padding: 9px 12px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background: var(--bg);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 0 0 2px rgba(0, 229, 160, 0.12);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-dim);
+        }
+
+        .form-select option {
+            background: var(--surface);
+        }
+
+        .form-control::file-selector-button {
+            background: var(--border);
+            color: var(--text);
+            border: none;
+            border-right: 1px solid var(--border);
+            padding: 9px 14px;
+            margin-inline-end: 12px;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .form-control::file-selector-button:hover {
+            background: #253040;
+        }
+
+        /* ── BUTTONS ── */
+        .btn-primary-custom {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 10px 22px;
+            cursor: pointer;
+            transition: opacity 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary-custom:hover {
+            opacity: 0.85;
+            box-shadow: 0 0 18px rgba(0, 229, 160, 0.3);
+        }
+
+        .btn-secondary-custom {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            padding: 8px 18px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .btn-secondary-custom:hover {
+            border-color: var(--text-dim);
+            color: #fff;
+        }
+
+        .btn-blue {
+            background: var(--accent2);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 18px;
+            cursor: pointer;
+            transition: opacity 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-blue:hover {
+            opacity: 0.85;
+            box-shadow: 0 0 14px rgba(0, 148, 255, 0.35);
+            color: #fff;
+        }
+
+        .btn-danger-custom {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            padding: 5px 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-danger-custom:hover {
+            background: rgba(255, 61, 90, 0.1);
+        }
+
+        .btn-success-custom {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            padding: 5px 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-success-custom:hover {
+            background: rgba(0, 229, 160, 0.08);
+        }
+
+        .btn-warn-custom {
+            background: transparent;
+            color: #f0a500;
+            border: 1px solid #f0a500;
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            padding: 5px 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-warn-custom:hover {
+            background: rgba(240, 165, 0, 0.08);
+        }
+
+        .btn-outline-accent {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            padding: 5px 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-outline-accent:hover {
+            background: rgba(0, 229, 160, 0.08);
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 12px;
+            font-size: 0.78rem;
+        }
+
+        /* ── TABLES ── */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+        }
+
+        .data-table th {
+            color: var(--text-dim);
+            font-size: 0.62rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 400;
+            text-align: left;
+        }
+
+        .data-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tbody tr:hover td {
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        /* ── BADGES ── */
+        .badge-on {
+            display: inline-block;
+            background: rgba(0, 229, 160, 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(0, 229, 160, 0.3);
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 0.58rem;
+            padding: 2px 7px;
+            letter-spacing: 0.1em;
+            margin-right: 8px;
+        }
+
+        .badge-off {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 0.58rem;
+            padding: 2px 7px;
+            letter-spacing: 0.1em;
+            margin-right: 8px;
+        }
+
+        .badge-tag {
+            display: inline-block;
+            background: rgba(0, 148, 255, 0.1);
+            color: var(--accent2);
+            border: 1px solid rgba(0, 148, 255, 0.25);
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            padding: 2px 8px;
+            letter-spacing: 0.08em;
+            margin-left: 6px;
+        }
+
+        /* ── BALANCEADOR BLOCK ── */
+        .bal-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 28px;
+            overflow: hidden;
+        }
+
+        .bal-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: rgba(0, 148, 255, 0.04);
+        }
+
+        .bal-name {
+            font-family: var(--sans);
+            font-weight: 700;
+            font-size: 1rem;
+            color: #fff;
+        }
+
+        .bal-body {
+            padding: 20px 24px;
+        }
+
+        /* ── TERMINAL ── */
+.terminal {
+    background: #000;
+    border: 1px solid #1e2832;
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: #00e5a0;
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    height: 300px;      /* mejor que max-height */
+    overflow-y: auto;   /* scroll vertical */
+}
+
+        .terminal::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .terminal::-webkit-scrollbar-thumb {
+            background: #1e2832;
+            border-radius: 2px;
+        }
+
+        /* ── LOADING ── */
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 12, 16, 0.93);
+            backdrop-filter: blur(6px);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .loader-ring {
+            width: 48px;
+            height: 48px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loader-text {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            letter-spacing: 0.15em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        /* ── MODALS ── */
+        .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--border);
+            padding: 18px 24px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border);
+            padding: 14px 24px;
+        }
+
+        .modal-title {
+            font-family: var(--sans);
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #fff;
+        }
+
+        .btn-close-white {
+            filter: invert(1) grayscale(1);
+            opacity: 0.5;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+        }
+
+        /* ── DIVIDER ── */
+        .hdivider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 20px 0;
+        }
+
+        /* IP highlight */
+        .ip-text {
+            color: #fff;
+            font-family: var(--mono);
+        }
+
+        .port-text {
+            color: var(--accent);
+            font-family: var(--mono);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Procesando...</p>
+    </div>
+
+    <!-- Modal: Crear VM -->
+    <div class="modal fade" id="crearVMModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva Máquina Virtual</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/crear-vm" method="POST" id="formCrearVM">
+                    <div class="modal-body p-4">
+                        <input type="hidden" name="disco_ruta" id="modalDiscoRuta">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre de la instancia</label>
+                            <input type="text" name="vm_nombre" class="form-control" placeholder="Ej: WebServer-Node1"
+                                required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">IP de la VM</label>
+                            <input type="text" name="ip_vm" class="form-control" placeholder="Ej: 192.168.1.50"
+                                required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Puerto Host (Web)</label>
+                            <input type="number" name="puerto_host" class="form-control" placeholder="Ej: 8081"
+                                required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Puerto Host (SSH)</label>
+                            <input type="number" name="puerto_ssh" class="form-control" placeholder="Ej: 22" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn-primary-custom" onclick="showLoader()">Desplegar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Registrar Balanceador -->
+    <div class="modal fade" id="crearBalanceadorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Balanceador HAProxy</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/haproxy/nuevo" method="POST" onsubmit="showLoader()">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label">Alias del balanceador</label>
+                            <input type="text" name="nombre" class="form-control" placeholder="Ej: HAProxy-Principal"
+                                required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">IP del balanceador</label>
+                            <input type="text" name="ip" class="form-control" placeholder="Ej: 192.168.20.110" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Puerto SSH</label>
+                            <input type="number" name="puerto_ssh" class="form-control" placeholder="Ej: 22" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Puerto Web (frontend)</label>
+                            <input type="number" name="puerto_web" class="form-control" value="80" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn-primary-custom">Registrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Agregar Servidor Backend -->
+    <div class="modal fade" id="crearServerBackendModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Acoplar Servidor Backend</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/haproxy/servidor/agregar" method="POST" onsubmit="showLoader()">
+                    <div class="modal-body p-4">
+                        <input type="hidden" name="bal_id" id="modalBalId">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre del nodo</label>
+                            <input type="text" name="nombre" class="form-control" placeholder="Ej: Debian1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">IP destino</label>
+                            <input type="text" name="ip" class="form-control" placeholder="Ej: 192.168.20.109" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Puerto servicio web</label>
+                            <input type="number" name="puerto" class="form-control" placeholder="Ej: 8000" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn-primary-custom">Vincular Nodo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <span class="topbar-logo">GB</span>
+        <span class="topbar-title">Gestión de Balanceador</span>
+        <span class="topbar-sub">HAProxy · VirtualBox · SSH</span>
+    </div>
+
+    <div class="main-wrap">
+
+        <!-- ── SECCIÓN 1: DESPLEGAR PLANTILLA ── -->
+        <div class="section-label">01 — Desplegar plantilla base</div>
+        <div class="card-panel">
+            <form action="/ejecutar" method="POST" enctype="multipart/form-data" onsubmit="showLoader()">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Ejecutable Linux</label>
+                        <input type="file" name="ejecutable" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Archivos adicionales (.zip)</label>
+                        <input type="file" name="archivos_zip" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Puerto servicio</label>
+                        <input type="number" name="puerto" class="form-control" placeholder="8000" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">IP de la VM base</label>
+                        <input type="text" name="ip_vm" class="form-control" placeholder="192.168.x.x" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">VM plantilla base</label>
+                        <input type="text" name="vm_plantilla" class="form-control" placeholder="Debian-Servidor1"
+                            required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Alias disco multi</label>
+                        <input type="text" name="disco_multi" class="form-control" placeholder="DiscoMulti-App"
+                            required>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <button type="submit" class="btn-primary-custom btn-full">Generar imagen base</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- ── SECCIÓN 2: BALANCEADORES ── -->
+        <div class="d-flex align-items-center justify-content-between mb-3 mt-2">
+            <div class="section-label" style="flex:1; margin-bottom:0;">02 — Balanceadores HAProxy</div>
+            <button class="btn-outline-accent ms-3" style="white-space:nowrap;" data-bs-toggle="modal"
+                data-bs-target="#crearBalanceadorModal">+ Registrar</button>
+        </div>
+
+        {{if .Balanceadores}}
+        {{range .Balanceadores}}
+        <div class="bal-block">
+            <div class="bal-header">
+                <div>
+                    <span class="bal-name">{{.Nombre}}</span>
+                    <span class="badge-tag">SSH :{{.PuertoSSH}}</span>
+                    <span class="badge-tag">WEB :{{.PuertoWeb}}</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <form action="/haproxy/sincronizar" method="POST" style="display:inline;" onsubmit="showLoader()">
+                        <input type="hidden" name="bal_id" value="{{.ID}}">
+                        <button type="submit" class="btn-primary-custom">↑ Sincronizar</button>
+                    </form>
+                    <form action="/haproxy/eliminar" method="POST" style="display:inline;">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn-danger-custom">Desvincular</button>
+                    </form>
+                </div>
+            </div>
+            <div class="bal-body">
+                <p
+                    style="font-family:var(--mono); font-size:0.62rem; color:var(--text-dim); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:12px;">
+                    Pool de servidores backend</p>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nodo</th>
+                            <th>IP destino</th>
+                            <th>Puerto</th>
+                            <th style="text-align:right;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{$balID := .ID}}
+                        {{if .Servidores}}
+                        {{range .Servidores}}
+                        <tr>
+                            <td class="ip-text">{{.Nombre}}</td>
+                            <td>{{.IP}}</td>
+                            <td class="port-text">:{{.Puerto}}</td>
+                            <td style="text-align:right;">
+                                <form action="/haproxy/servidor/eliminar" method="POST" style="display:inline;">
+                                    <input type="hidden" name="bal_id" value="{{$balID}}">
+                                    <input type="hidden" name="server_id" value="{{.ID}}">
+                                    <button type="submit" class="btn-danger-custom">Quitar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{end}}
+                        {{else}}
+                        <tr>
+                            <td colspan="4" class="empty-state">Sin nodos asignados</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                <div class="mt-3">
+                    <button class="btn-secondary-custom btn-full" onclick="openCrearServerBackendModal('{{.ID}}')">+
+                        Acoplar nodo al pool</button>
+                </div>
+            </div>
+        </div>
+        {{end}}
+        {{else}}
+        <div class="card-panel text-center">
+            <p class="empty-state">No hay balanceadores registrados.</p>
+        </div>
+        {{end}}
+
+        <!-- ── SECCIÓN 3: DISCOS ── -->
+        <div class="section-label mt-2">03 — Repositorio de discos</div>
+        <div class="card-panel p-0" style="padding:0 !important; overflow:hidden;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="padding-left:24px;">Alias</th>
+                        <th>Ruta VDI</th>
+                        <th style="text-align:right; padding-right:24px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .Discos}}
+                    {{range .Discos}}
+                    <tr>
+                        <td style="padding-left:24px;" class="ip-text">{{.Nombre}}</td>
+                        <td style="color:var(--text-dim); font-size:0.72rem;">{{.Ruta}}</td>
+                        <td style="text-align:right; padding-right:24px;">
+                            <button type="button" class="btn-outline-accent me-2"
+                                onclick="openCrearVMModal('{{.Ruta}}')">Instanciar VM</button>
+                            <form action="/eliminar-disco" method="POST" style="display:inline;">
+                                <input type="hidden" name="disco_ruta" value="{{.Ruta}}">
+                                <button type="submit" class="btn-danger-custom">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                    {{else}}
+                    <tr>
+                        <td colspan="3" class="empty-state">Sin discos generados.</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── SECCIÓN 4: VMs ── -->
+        <div class="section-label mt-2">04 — Instancias activas</div>
+        <div class="card-panel p-0" style="padding:0 !important; overflow:hidden;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="padding-left:24px;">Instancia</th>
+                        <th>IP / Puerto</th>
+                        <th>CPU</th>
+                        <th style="text-align:right; padding-right:24px;">Gestión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .VMs}}
+                    {{range .VMs}}
+                    <tr>
+                        <td style="padding-left:24px;">
+                            {{if .EsEncendida}}
+                            <span class="badge-on">ON</span>
+                            {{else}}
+                            <span class="badge-off">OFF</span>
+                            {{end}}
+                            <span class="ip-text">{{.Nombre}}</span>
+                        </td>
+                        <td><span class="ip-text">{{.IP}}</span> <span class="port-text">:{{.Puerto}}</span></td>
+                        <td>
+                            <span id="cpu-{{.Nombre}}" style="color:#00e5a0; font-family:var(--mono);">
+                                --
+                            </span>
+                        </td>
+                        <td style="text-align:right; padding-right:24px;">
+                            <form action="/iniciar-vm" method="POST" style="display:inline;">
+                                <input type="hidden" name="vm_nombre" value="{{.Nombre}}">
+                                <button type="submit" class="btn-success-custom me-1">Iniciar</button>
+                            </form>
+                            <form action="/apagar-vm" method="POST" style="display:inline;">
+                                <input type="hidden" name="vm_nombre" value="{{.Nombre}}">
+                                <button type="submit" class="btn-warn-custom me-2">Apagar</button>
+                            </form>
+                            <a href="http://{{.IP}}:{{.Puerto}}" target="_blank" class="btn-blue">Visitar</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                    {{else}}
+                    <tr>
+                        <td colspan="3" class="empty-state">Sin instancias registradas.</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── SECCIÓN 5: MONITOR DE SERVICIOS ── -->
+        <div class="section-label mt-2">05 — Monitor de servicios SSH</div>
+        <div class="card-panel accent-blue">
+            <form action="/servicio" method="POST" onsubmit="showLoader()">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">IP de la VM</label>
+                        <input type="text" name="ip_vm" class="form-control" placeholder="192.168.x.x" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Puerto SSH</label>
+                        <input type="number" name="puerto_ssh" class="form-control" value="22" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Acción systemctl</label>
+                        <select name="accion" class="form-select">
+                            <option value="status">status — estado del servicio</option>
+                            <option value="logs">logs — journalctl</option>
+                            <option value="start">start — iniciar</option>
+                            <option value="stop">stop — detener</option>
+                            <option value="restart">restart — reiniciar</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn-blue btn-full" style="padding:10px;">Ejecutar</button>
+                    </div>
+                </div>
+            </form>
+
+            {{if .ResultadoServicio}}
+            <hr class="hdivider">
+            <p
+                style="font-family:var(--mono); font-size:0.62rem; color:var(--accent); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:10px;">
+                ▶ Salida de consola</p>
+            <div class="terminal">{{.ResultadoServicio}}</div>
+            {{end}}
+        </div>
+
+        <!-- ── SECCIÓN 6: AUTO SCALING ── -->
+        <div class="section-label mt-2">06 — Auto Scaling</div>
+        <div class="card-panel accent-blue">
+
+            <form action="/autoscaling/toggle" method="POST">
+                <button type="submit" class="btn-primary-custom btn-full">
+                    Activar / Desactivar Auto Scaling
+                </button>
+                <div class="card-panel mt-3">
+
+                    <form action="/autoscaling/config" method="POST">
+
+                        <div class="row g-3">
+
+                            <div class="col-md-3">
+                                <label class="form-label">Umbral alto (%)</label>
+                                <input type="number" name="umbral_alto" class="form-control" value="70">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Umbral bajo (%)</label>
+                                <input type="number" name="umbral_bajo" class="form-control" value="20">
+                            </div>
+
+                            <!-- TOGGLE -->
+                            <form action="/autoscaling/toggle" method="POST">
+                                <button type="submit" class="btn-primary-custom btn-full">
+                                    Activar / Desactivar Auto Scaling
+                                </button>
+                            </form>
+
+                            <!-- CONFIG -->
+                            <div class="card-panel mt-3">
+                                <form action="/autoscaling/config" method="POST">
+
+                                    <div class="row g-3">
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Umbral alto (%)</label>
+                                            <input type="number" name="umbral_alto" class="form-control" value="70">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Umbral bajo (%)</label>
+                                            <input type="number" name="umbral_bajo" class="form-control" value="20">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Tiempo umbral (seg)</label>
+                                            <input type="number" name="tiempo_umbral" class="form-control" value="60">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Frecuencia (seg)</label>
+                                            <input type="number" name="frecuencia" class="form-control" value="10">
+                                        </div>
+
+                                        <div class="col-12 mt-2">
+                                            <button type="submit" class="btn-primary-custom btn-full">
+                                                Guardar configuración
+                                            </button>
+                                        </div>
+
+                                    </div>
+
+                                </form>
+                            </div>
+                            <div class="card-panel">
+                                <p class="section-label">Consola del sistema</p>
+                                <div id="console" class="terminal"></div>
+                            </div>
+
+                            <div class="card-panel mt-3">
+                                <p style="font-family:var(--mono); font-size:0.7rem;">
+                                    <b>Estado actual del sistema</b>
+                                </p>
+
+                                <p>AutoScaling: {{.AutoScaling}}</p>
+                                <p>Umbral alto: {{.UmbralAlto}}%</p>
+                                <p>Umbral bajo: {{.UmbralBajo}}%</p>
+                                <p>Frecuencia: {{.Frecuencia}}</p>
+                            </div>
+
+                            <p style="
+        margin-top:15px;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        text-align:center;
+    ">
+                                El sistema creará o eliminará VMs automáticamente según uso de CPU.
+                            </p>
+
+                        </div>
+
+                        <p
+                            style="text-align:center; font-family:var(--mono); font-size:0.6rem; color:var(--text-dim); letter-spacing:0.12em; margin-top:48px;">
+                            GESTIÓN DE BALANCEADOR · 2026 · Go
+                        </p>
+                </div>
+
+                <script>
+                    function showLoader() {
+                        document.getElementById('loadingOverlay').style.display = 'flex';
+                    }
+                    function openCrearVMModal(ruta) {
+                        document.getElementById('modalDiscoRuta').value = ruta;
+                        new bootstrap.Modal(document.getElementById('crearVMModal')).show();
+                    }
+                    function openCrearServerBackendModal(balId) {
+                        document.getElementById('modalBalId').value = balId;
+                        new bootstrap.Modal(document.getElementById('crearServerBackendModal')).show();
+                    }
+                </script>
+                <script>
+                    function actualizarCPU() {
+                        fetch('/cpu')
+                            .then(res => res.json())
+                            .then(data => {
+                                for (const vm in data) {
+                                    const el = document.getElementById("cpu-" + vm);
+                                    if (el) {
+                                        el.innerText = data[vm].toFixed(2) + "%";
+                                    }
+                                }
+                            })
+                            .catch(err => console.error("Error CPU:", err));
+                    }
+
+                    // 🔁 Cada 5 segundos (puedes bajar a 2 si quieres)
+                    setInterval(actualizarCPU, 5000);
+
+                    // Primera carga inmediata
+                    actualizarCPU();
+                </script>
+
+                <script>
+                    function actualizarLogs() {
+                        fetch('/logs')
+                            .then(res => {
+                                if (!res.ok) throw new Error("HTTP error " + res.status);
+                                return res.json();
+                            })
+                            .then(data => {
+                                const consoleDiv = document.getElementById("console");
+
+                                consoleDiv.innerText = data.join("\n");
+                                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                            })
+                            .catch(err => console.error("LOG ERROR:", err));
+                    }
+
+                    setInterval(actualizarLogs, 2000);
+                    actualizarLogs();
+                </script>
+</body>
+
+</html>

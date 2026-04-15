@@ -1,0 +1,33 @@
+{
+  "discos": [
+    {
+      "Nombre": "Debian",
+      "Ruta": "C:\\\\Users\\\\DIEGO\\\\VirtualBox VMs\\\\Debian\\\\Snapshots\\\\{5e380754-24a9-40a0-a26b-eeb7697ffbe3}.vdi\"\r"
+    }
+  ],
+  "vms": [
+    {
+      "Nombre": "Debian2",
+      "IP": "192.168.20.112",
+      "Puerto": "8000",
+      "Temporal": false
+    }
+  ],
+  "balanceadores": [
+    {
+      "id": "balanceador",
+      "nombre": "balanceador",
+      "ip": "192.168.20.110",
+      "puerto_ssh": "22",
+      "puerto_web": "80",
+      "servidores": [
+        {
+          "id": "Debian2",
+          "nombre": "Debian2",
+          "ip": "192.168.20.112",
+          "puerto": "8000"
+        }
+      ]
+    }
+  ]
+}
