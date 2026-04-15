@@ -914,46 +914,137 @@
             {{end}}
         </div>
 
-        <p
-            style="text-align:center; font-family:var(--mono); font-size:0.6rem; color:var(--text-dim); letter-spacing:0.12em; margin-top:48px;">
-            GESTIÓN DE BALANCEADOR · 2026 · Go
-        </p>
-    </div>
+        <!-- ── SECCIÓN 6: AUTO SCALING ── -->
+        <div class="section-label mt-2">06 — Auto Scaling</div>
+        <div class="card-panel accent-blue">
 
-    <script>
-        function showLoader() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-        }
-        function openCrearVMModal(ruta) {
-            document.getElementById('modalDiscoRuta').value = ruta;
-            new bootstrap.Modal(document.getElementById('crearVMModal')).show();
-        }
-        function openCrearServerBackendModal(balId) {
-            document.getElementById('modalBalId').value = balId;
-            new bootstrap.Modal(document.getElementById('crearServerBackendModal')).show();
-        }
-    </script>
-    <script>
-        function actualizarCPU() {
-            fetch('/cpu')
-                .then(res => res.json())
-                .then(data => {
-                    for (const vm in data) {
-                        const el = document.getElementById("cpu-" + vm);
-                        if (el) {
-                            el.innerText = data[vm].toFixed(2) + "%";
-                        }
+            <form action="/autoscaling/toggle" method="POST">
+                <button type="submit" class="btn-primary-custom btn-full">
+                    Activar / Desactivar Auto Scaling
+                </button>
+                <div class="card-panel mt-3">
+
+                    <form action="/autoscaling/config" method="POST">
+
+                        <div class="row g-3">
+
+                            <div class="col-md-3">
+                                <label class="form-label">Umbral alto (%)</label>
+                                <input type="number" name="umbral_alto" class="form-control" value="70">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Umbral bajo (%)</label>
+                                <input type="number" name="umbral_bajo" class="form-control" value="20">
+                            </div>
+
+                            <!-- TOGGLE -->
+                            <form action="/autoscaling/toggle" method="POST">
+                                <button type="submit" class="btn-primary-custom btn-full">
+                                    Activar / Desactivar Auto Scaling
+                                </button>
+                            </form>
+
+                            <!-- CONFIG -->
+                            <div class="card-panel mt-3">
+                                <form action="/autoscaling/config" method="POST">
+
+                                    <div class="row g-3">
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Umbral alto (%)</label>
+                                            <input type="number" name="umbral_alto" class="form-control" value="70">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Umbral bajo (%)</label>
+                                            <input type="number" name="umbral_bajo" class="form-control" value="20">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Tiempo umbral (seg)</label>
+                                            <input type="number" name="tiempo_umbral" class="form-control" value="60">
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Frecuencia (seg)</label>
+                                            <input type="number" name="frecuencia" class="form-control" value="10">
+                                        </div>
+
+                                        <div class="col-12 mt-2">
+                                            <button type="submit" class="btn-primary-custom btn-full">
+                                                Guardar configuración
+                                            </button>
+                                        </div>
+
+                                    </div>
+
+                                </form>
+                            </div>
+
+                            <div class="card-panel mt-3">
+                                <p style="font-family:var(--mono); font-size:0.7rem;">
+                                    <b>Estado actual del sistema</b>
+                                </p>
+
+                                <p>AutoScaling: {{.AutoScaling}}</p>
+                                <p>Umbral alto: {{.UmbralAlto}}%</p>
+                                <p>Umbral bajo: {{.UmbralBajo}}%</p>
+                                <p>Frecuencia: {{.Frecuencia}}</p>
+                            </div>
+
+                            <p style="
+        margin-top:15px;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        text-align:center;
+    ">
+                                El sistema creará o eliminará VMs automáticamente según uso de CPU.
+                            </p>
+
+                        </div>
+
+                        <p
+                            style="text-align:center; font-family:var(--mono); font-size:0.6rem; color:var(--text-dim); letter-spacing:0.12em; margin-top:48px;">
+                            GESTIÓN DE BALANCEADOR · 2026 · Go
+                        </p>
+                </div>
+
+                <script>
+                    function showLoader() {
+                        document.getElementById('loadingOverlay').style.display = 'flex';
                     }
-                })
-                .catch(err => console.error("Error CPU:", err));
-        }
+                    function openCrearVMModal(ruta) {
+                        document.getElementById('modalDiscoRuta').value = ruta;
+                        new bootstrap.Modal(document.getElementById('crearVMModal')).show();
+                    }
+                    function openCrearServerBackendModal(balId) {
+                        document.getElementById('modalBalId').value = balId;
+                        new bootstrap.Modal(document.getElementById('crearServerBackendModal')).show();
+                    }
+                </script>
+                <script>
+                    function actualizarCPU() {
+                        fetch('/cpu')
+                            .then(res => res.json())
+                            .then(data => {
+                                for (const vm in data) {
+                                    const el = document.getElementById("cpu-" + vm);
+                                    if (el) {
+                                        el.innerText = data[vm].toFixed(2) + "%";
+                                    }
+                                }
+                            })
+                            .catch(err => console.error("Error CPU:", err));
+                    }
 
-        // 🔁 Cada 5 segundos (puedes bajar a 2 si quieres)
-        setInterval(actualizarCPU, 5000);
+                    // 🔁 Cada 5 segundos (puedes bajar a 2 si quieres)
+                    setInterval(actualizarCPU, 5000);
 
-        // Primera carga inmediata
-        actualizarCPU();
-    </script>
+                    // Primera carga inmediata
+                    actualizarCPU();
+                </script>
 </body>
 
 </html>
