@@ -2,7 +2,7 @@
 Description=Servidor Gestionado Go
 
 [Service]
-ExecStart=/home/debian/ejecutable_linux 8000
+ExecStart=/home/debian/srvimglinux 8000
 WorkingDirectory=/home/debian/
 Restart=always
 

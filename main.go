@@ -183,7 +183,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ejecutarHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(10 << 20)
+	r.ParseMultipartForm(50 << 20)
 
 	puerto := r.FormValue("puerto")
 	discoMulti := r.FormValue("disco_multi")
@@ -191,87 +191,137 @@ func ejecutarHandler(w http.ResponseWriter, r *http.Request) {
 	vmName := r.FormValue("vm_plantilla")
 
 	if vmName == "" || ipVM == "" || puerto == "" {
-		fmt.Println("ERROR: Datos incompletos en el formulario")
+		fmt.Println("ERROR: Datos incompletos")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	fmt.Println("--------------------------------------------------")
-	fmt.Println("Iniciando despliegue en VM:", vmName)
+	fmt.Println("🚀 Desplegando en:", vmName)
 
-	// 🔐 CONEXIÓN SSH
 	client, err := creaClienteSSH(ipVM, "22")
 	if err != nil {
-		fmt.Println("Error de conexion SSH:", err)
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		fmt.Println("Error SSH:", err)
 		return
 	}
 
-	// 🔑 INYECTAR LLAVE SSH
-	pubKey, _ := os.ReadFile("C:\\Users\\TU_USUARIO\\.ssh\\id_ed25519.pub")
-	ejecutarComandoSSH(client, fmt.Sprintf(`mkdir -p ~/.ssh && echo "%s" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`, string(pubKey)))
+	// ============================
+	// SUBIR EJECUTABLE (FIX REAL)
+	// ============================
+	fileEjecutable, header, err := r.FormFile("ejecutable")
+	if err != nil {
+		fmt.Println("❌ No se subió ejecutable:", err)
+		return
+	}
+	defer fileEjecutable.Close()
 
-	fmt.Println("Transfiriendo archivos...")
+	bytesEjecutable, err := io.ReadAll(fileEjecutable)
+	if err != nil || len(bytesEjecutable) == 0 {
+		fmt.Println("❌ Ejecutable vacío")
+		return
+	}
 
-	// 📦 SUBIR EJECUTABLE
-	fileEjecutable, _, _ := r.FormFile("ejecutable")
-	bytesEjecutable, _ := io.ReadAll(fileEjecutable)
-	subirArchivoSSH(client, bytesEjecutable, "/home/"+sshUser+"/ejecutable_linux")
+	nombreEjecutable := strings.TrimSpace(header.Filename)
 
-	// 📦 SUBIR ZIP
-	fileZip, _, _ := r.FormFile("archivos_zip")
-	bytesZip, _ := io.ReadAll(fileZip)
-	subirArchivoSSH(client, bytesZip, "/home/"+sshUser+"/archivos.zip")
+	fmt.Println("📦 Ejecutable:", nombreEjecutable)
 
-	// ⚙️ CREAR SERVICE
+	err = subirArchivoSSH(client, bytesEjecutable, "/home/"+sshUser+"/"+nombreEjecutable)
+	if err != nil {
+		fmt.Println("❌ Error subiendo ejecutable:", err)
+		return
+	}
+
+	// ============================
+	// SUBIR ZIP
+	// ============================
+	fileZip, _, err := r.FormFile("archivos_zip")
+	if err == nil {
+		defer fileZip.Close()
+		bytesZip, _ := io.ReadAll(fileZip)
+		subirArchivoSSH(client, bytesZip, "/home/"+sshUser+"/archivos.zip")
+	}
+
+	// ============================
+	// SERVICE CORRECTO (FIX 203)
+	// ============================
 	serviceData := fmt.Sprintf(`[Unit]
 Description=Servidor Gestionado Go
 
 [Service]
-ExecStart=/home/%s/ejecutable_linux %s
+ExecStart=/bin/bash -c '/home/%s/%s %s'
 WorkingDirectory=/home/%s/
 Restart=always
+User=%s
 
 [Install]
-WantedBy=multi-user.target`, sshUser, puerto, sshUser)
+WantedBy=multi-user.target`,
+		sshUser,
+		nombreEjecutable,
+		puerto,
+		sshUser,
+		sshUser,
+	)
 
 	subirArchivoSSH(client, []byte(serviceData), "/home/"+sshUser+"/appweb.service")
 
-	fmt.Println("Configurando sistema...")
+	// ============================
+	// COMANDOS LINUX (FIX COMPLETO)
+	// ============================
+	comandos := fmt.Sprintf(`
+set -e
 
-	comandosLinux := fmt.Sprintf(`
-	set -e
-	echo '%s' | sudo -S apt-get update -y
-	echo '%s' | sudo -S apt-get install -y unzip
+cd /home/%s
+
+echo '%s' | sudo -S apt-get update -y
+echo '%s' | sudo -S apt-get install -y unzip
+
+if [ -f archivos.zip ]; then
 	unzip -o archivos.zip
-	chmod +x ejecutable_linux
-	echo '%s' | sudo -S cp /home/%s/appweb.service /etc/systemd/system/
-	echo '%s' | sudo -S systemctl daemon-reload
-	echo '%s' | sudo -S systemctl enable appweb
-	echo '%s' | sudo -S systemctl start appweb
-	`, sshPassword, sshPassword, sshPassword, sshUser,
-		sshPassword, sshPassword, sshPassword)
+fi
 
-	outCmd, errCmd := ejecutarComandoSSH(client, comandosLinux)
-	fmt.Println(outCmd)
+chmod +x %s
 
-	if errCmd != nil {
-		fmt.Println("Error configurando VM:", errCmd)
+echo "=== DEBUG ARCHIVOS ==="
+ls -l /home/%s/
+
+echo '%s' | sudo -S cp /home/%s/appweb.service /etc/systemd/system/appweb.service
+
+echo '%s' | sudo -S systemctl daemon-reload
+echo '%s' | sudo -S systemctl enable appweb
+echo '%s' | sudo -S systemctl restart appweb
+
+echo "=== STATUS ==="
+echo '%s' | sudo -S systemctl status appweb --no-pager
+`,
+		sshUser,
+		sshPassword,
+		sshPassword,
+		nombreEjecutable,
+		sshUser,
+		sshPassword, sshUser,
+		sshPassword,
+		sshPassword,
+		sshPassword,
+		sshPassword,
+	)
+
+	out, err := ejecutarComandoSSH(client, comandos)
+
+	fmt.Println("====== RESULTADO ======")
+	fmt.Println(out)
+
+	if err != nil {
+		fmt.Println("❌ ERROR FINAL:", err)
 	}
 
 	client.Close()
 
-	// 🧠 OBTENER VDI DINÁMICAMENTE
+	// ============================
+	// GUARDADO NORMAL (NO TOCAR)
+	// ============================
 	vboxManage := "C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"
 
 	cmd := exec.Command(vboxManage, "showvminfo", vmName, "--machinereadable")
-	output, err := cmd.Output()
-
-	if err != nil {
-		fmt.Println("Error obteniendo info de VM:", err)
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
+	output, _ := cmd.Output()
 
 	lines := strings.Split(string(output), "\n")
 	vdiPath := ""
@@ -286,37 +336,17 @@ WantedBy=multi-user.target`, sshUser, puerto, sshUser)
 		}
 	}
 
-	if vdiPath == "" {
-		fmt.Println("No se encontró el disco VDI")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+	if vdiPath != "" {
+		mtx.Lock()
+		discosGuardados = append(discosGuardados, Disco{
+			Nombre: discoMulti,
+			Ruta:   vdiPath,
+		})
+		guardarEstado()
+		mtx.Unlock()
 	}
 
-	// 📴 APAGAR VM
-	fmt.Println("Apagando VM...")
-	exec.Command(vboxManage, "controlvm", vmName, "poweroff").Run()
-	time.Sleep(5 * time.Second)
-
-	// 🔄 MULTIATTACH
-	fmt.Println("Configurando disco multiattach...")
-	exec.Command(vboxManage, "storageattach", vmName,
-		"--storagectl", "SATA",
-		"--port", "0",
-		"--device", "0",
-		"--medium", "none").Run()
-
-	exec.Command(vboxManage, "modifymedium", vdiPath, "--type", "multiattach").Run()
-
-	// 💾 GUARDAR
-	mtx.Lock()
-	discosGuardados = append(discosGuardados, Disco{
-		Nombre: discoMulti,
-		Ruta:   vdiPath,
-	})
-	guardarEstado()
-	mtx.Unlock()
-
-	fmt.Println("Despliegue finalizado correctamente 🚀")
+	fmt.Println("✅ Despliegue terminado")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -361,7 +391,7 @@ func servicioHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("--------------------------------------------------")
 		fmt.Printf("Panel de control: Ejecutando accion '%s' en %s:%s...\n", accion, ipVM, puertoSSH)
 
-		comando := fmt.Sprintf("sudo systemctl %s appweb --no-pager", accion)
+		comando := fmt.Sprintf("echo '%s' | sudo -S systemctl %s appweb --no-pager", sshPassword, accion)
 		if accion == "logs" {
 			comando = "sudo journalctl -u appweb -n 15 --no-pager"
 		}
